@@ -1,3 +1,4 @@
+```groovy
 pipeline {
     agent any
 
@@ -28,6 +29,7 @@ pipeline {
 
     environment {
         IMAGE_REPOSITORY = 'registry.example.com/platform/order-api'
+        IMAGE_TAG = ''
         TEST_IMAGE = 'order-api:test'
     }
 
@@ -37,7 +39,14 @@ pipeline {
             steps {
                 checkout scm
 
-                sh 'git rev-parse HEAD'
+                script {
+                    env.IMAGE_TAG = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Building Git commit: ${env.IMAGE_TAG}"
+                }
             }
         }
 
@@ -67,7 +76,7 @@ pipeline {
                 sh '''
                     docker build \
                       --target runtime \
-                      -t ${IMAGE_REPOSITORY}:${GIT_COMMIT} \
+                      -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} \
                       .
                 '''
             }
@@ -77,7 +86,7 @@ pipeline {
             steps {
                 sh '''
                     docker image inspect \
-                      ${IMAGE_REPOSITORY}:${GIT_COMMIT}
+                      ${IMAGE_REPOSITORY}:${IMAGE_TAG}
                 '''
             }
         }
@@ -94,7 +103,7 @@ pipeline {
                     trivy image \
                       --exit-code 1 \
                       --severity HIGH,CRITICAL \
-                      ${IMAGE_REPOSITORY}:${GIT_COMMIT}
+                      ${IMAGE_REPOSITORY}:${IMAGE_TAG}
                 '''
             }
         }
@@ -109,7 +118,7 @@ pipeline {
             steps {
                 sh '''
                     docker push \
-                      ${IMAGE_REPOSITORY}:${GIT_COMMIT}
+                      ${IMAGE_REPOSITORY}:${IMAGE_TAG}
                 '''
             }
         }
@@ -125,7 +134,7 @@ pipeline {
                 sh '''
                     kubectl -n staging set image \
                       deployment/order-api \
-                      api=${IMAGE_REPOSITORY}:${GIT_COMMIT}
+                      api=${IMAGE_REPOSITORY}:${IMAGE_TAG}
 
                     kubectl -n staging rollout status \
                       deployment/order-api
@@ -136,7 +145,7 @@ pipeline {
 
     post {
         success {
-            echo "CI pipeline succeeded for commit ${env.GIT_COMMIT}"
+            echo "CI pipeline succeeded for commit: ${env.IMAGE_TAG ?: 'not-set'}"
         }
 
         failure {
@@ -145,7 +154,8 @@ pipeline {
 
         always {
             echo "Jenkins build: ${env.BUILD_NUMBER}"
-            echo "Git commit: ${env.GIT_COMMIT}"
+            echo "Git commit: ${env.IMAGE_TAG ?: 'not-set'}"
         }
     }
 }
+```
