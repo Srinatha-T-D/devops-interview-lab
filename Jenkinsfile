@@ -3,6 +3,7 @@ pipeline {
 
     options {
         timestamps()
+        skipDefaultCheckout(true)
     }
 
     parameters {
@@ -27,7 +28,6 @@ pipeline {
 
     environment {
         IMAGE_REPOSITORY = 'registry.example.com/platform/order-api'
-        IMAGE_TAG = ''
         TEST_IMAGE = 'order-api:test'
     }
 
@@ -37,20 +37,7 @@ pipeline {
             steps {
                 checkout scm
 
-                script {
-                    env.IMAGE_TAG = sh(
-                        script: 'git rev-parse HEAD',
-                        returnStdout: true
-                    ).trim()
-
-                    echo "Building Git commit: ${env.IMAGE_TAG}"
-                }
-            }
-        }
-
-        stage('Validate') {
-            steps {
-                sh 'python -m compileall app'
+                sh 'git rev-parse HEAD'
             }
         }
 
@@ -65,12 +52,22 @@ pipeline {
             }
         }
 
+        stage('Validate') {
+            steps {
+                sh '''
+                    docker run --rm \
+                      ${TEST_IMAGE} \
+                      python -m compileall app
+                '''
+            }
+        }
+
         stage('Build Immutable Image') {
             steps {
                 sh '''
                     docker build \
                       --target runtime \
-                      -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} \
+                      -t ${IMAGE_REPOSITORY}:${GIT_COMMIT} \
                       .
                 '''
             }
@@ -80,7 +77,7 @@ pipeline {
             steps {
                 sh '''
                     docker image inspect \
-                      ${IMAGE_REPOSITORY}:${IMAGE_TAG}
+                      ${IMAGE_REPOSITORY}:${GIT_COMMIT}
                 '''
             }
         }
@@ -97,7 +94,7 @@ pipeline {
                     trivy image \
                       --exit-code 1 \
                       --severity HIGH,CRITICAL \
-                      ${IMAGE_REPOSITORY}:${IMAGE_TAG}
+                      ${IMAGE_REPOSITORY}:${GIT_COMMIT}
                 '''
             }
         }
@@ -112,7 +109,7 @@ pipeline {
             steps {
                 sh '''
                     docker push \
-                      ${IMAGE_REPOSITORY}:${IMAGE_TAG}
+                      ${IMAGE_REPOSITORY}:${GIT_COMMIT}
                 '''
             }
         }
@@ -128,7 +125,7 @@ pipeline {
                 sh '''
                     kubectl -n staging set image \
                       deployment/order-api \
-                      api=${IMAGE_REPOSITORY}:${IMAGE_TAG}
+                      api=${IMAGE_REPOSITORY}:${GIT_COMMIT}
 
                     kubectl -n staging rollout status \
                       deployment/order-api
@@ -139,7 +136,7 @@ pipeline {
 
     post {
         success {
-            echo "CI pipeline succeeded for commit ${IMAGE_TAG}"
+            echo "CI pipeline succeeded for commit ${env.GIT_COMMIT}"
         }
 
         failure {
@@ -147,8 +144,8 @@ pipeline {
         }
 
         always {
-            echo "Jenkins build: ${BUILD_NUMBER}"
-            echo "Git commit: ${IMAGE_TAG}"
+            echo "Jenkins build: ${env.BUILD_NUMBER}"
+            echo "Git commit: ${env.GIT_COMMIT}"
         }
     }
 }
