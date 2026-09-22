@@ -12,8 +12,14 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_
 
 from app.config import get_settings
 
-REQUESTS = Counter("order_api_http_requests_total", "HTTP requests", ["method", "path", "status"])
-LATENCY = Histogram("order_api_http_request_duration_seconds", "HTTP request duration", ["method", "path"])
+REQUESTS = Counter(
+    "order_api_http_requests_total", "HTTP requests", ["method", "path", "status"]
+)
+LATENCY = Histogram(
+    "order_api_http_request_duration_seconds",
+    "HTTP request duration",
+    ["method", "path"],
+)
 
 
 class JsonFormatter(logging.Formatter):
@@ -49,7 +55,10 @@ def query_database(query: str):
 async def lifespan(_: FastAPI):
     settings = get_settings()
     logger.info("application_started", extra={"request_id": None})
-    logger.info(f"configuration_loaded version={settings.service_version}", extra={"request_id": None})
+    logger.info(
+        f"configuration_loaded version={settings.service_version}",
+        extra={"request_id": None},
+    )
     yield
     logger.info("application_stopped", extra={"request_id": None})
 
@@ -63,9 +72,11 @@ async def observe_request(request: Request, call_next: Callable):
     started = time.perf_counter()
     try:
         response = await call_next(request)
-    except Exception as exception:
+    except Exception:
         logger.exception("unhandled_request_error", extra={"request_id": request_id})
-        response = JSONResponse(status_code=500, content={"detail": "internal server error"})
+        response = JSONResponse(
+            status_code=500, content={"detail": "internal server error"}
+        )
     elapsed = time.perf_counter() - started
     path = request.url.path
     REQUESTS.labels(request.method, path, response.status_code).inc()
@@ -88,8 +99,13 @@ def readyz():
     try:
         query_database("SELECT 1")
     except Exception as exception:
-        logger.warning(f"readiness_failed error={type(exception).__name__}", extra={"request_id": None})
-        return JSONResponse(status_code=503, content={"status": "not_ready", "dependency": "postgres"})
+        logger.warning(
+            f"readiness_failed error={type(exception).__name__}",
+            extra={"request_id": None},
+        )
+        return JSONResponse(
+            status_code=503, content={"status": "not_ready", "dependency": "postgres"}
+        )
     return {"status": "ready", "dependency": "postgres"}
 
 
@@ -98,7 +114,12 @@ def list_orders():
     rows = query_database("SELECT id, customer, amount, status FROM orders ORDER BY id")
     return {
         "orders": [
-            {"id": row[0], "customer": row[1], "amount": float(row[2]), "status": row[3]}
+            {
+                "id": row[0],
+                "customer": row[1],
+                "amount": float(row[2]),
+                "status": row[3],
+            }
             for row in rows
         ]
     }
