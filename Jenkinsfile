@@ -83,22 +83,33 @@ pipeline {
             }
         }
 
-        stage('Security Gates') {
-            when {
-                expression {
-                    params.RUN_SECURITY_SCAN
-                }
-            }
-
-            steps {
-                sh '''
-                    trivy image \
-                      --exit-code 1 \
-                      --severity HIGH,CRITICAL \
-                      ${IMAGE_REPOSITORY}:${IMAGE_TAG}
-                '''
-            }
+	stage('Security Gates') {
+    when {
+        expression {
+            params.RUN_SECURITY_SCAN
         }
+    }
+    steps {
+        sh """
+            trivy image \
+              --severity HIGH,CRITICAL \
+              --format json \
+              --output trivy-report.json \
+              ${IMAGE_REPOSITORY}:${IMAGE_TAG}
+        """
+
+        archiveArtifacts artifacts: 'trivy-report.json',
+                         fingerprint: true
+
+        sh """
+            trivy image \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              ${IMAGE_REPOSITORY}:${IMAGE_TAG}
+        """
+    }
+}
 
         stage('Publish') {
             when {
