@@ -27,7 +27,7 @@ pipeline {
     }
 
     environment {
-        IMAGE_REPOSITORY = 'registry.example.com/platform/order-api'
+	IMAGE_REPOSITORY = 'registry:5000/platform/order-api'
         TEST_IMAGE = 'order-api:test'
     }
 
