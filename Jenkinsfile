@@ -51,10 +51,7 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 sh '''
-                    docker build \
-                      --target test \
-                      -t ${TEST_IMAGE} \
-                      .
+		    docker build --pull --target test -t ${TEST_IMAGE} .
                 '''
             }
         }
@@ -72,10 +69,7 @@ pipeline {
         stage('Build Immutable Image') {
             steps {
                 sh '''
-                    docker build \
-                      --target runtime \
-                      -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} \
-                      .
+		    docker build --pull --target runtime -t ${IMAGE_REPOSITORY}:${IMAGE_TAG} .
                 '''
             }
         }
