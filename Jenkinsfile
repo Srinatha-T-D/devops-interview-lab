@@ -1,4 +1,3 @@
-```groovy
 pipeline {
     agent any
 
@@ -29,7 +28,6 @@ pipeline {
 
     environment {
         IMAGE_REPOSITORY = 'registry.example.com/platform/order-api'
-        IMAGE_TAG = ''
         TEST_IMAGE = 'order-api:test'
     }
 
@@ -158,4 +156,3 @@ pipeline {
         }
     }
 }
-```
